@@ -1,0 +1,62 @@
+CREATE OR REPLACE PACKAGE BODY DGMS.SMS AS
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------START SEND_SMS----------------------------------------------------------------------
+PROCEDURE SEND_SMS(V_NUMBER VARCHAR2, V_CONTENT VARCHAR2,V_MASK VARCHAR2 )
+IS
+X_OP VARCHAR2(4000);
+BEGIN
+UTL_HTTP.SET_BODY_CHARSET('AL32UTF8');
+UTL_HTTP.set_wallet('file:/opt/WorkDir/wallet','Wallet_123');
+SELECT
+utl_http.request(utl_url.ESCAPE('http://weblogin.premiumsms.pk/sendsms_url.html?Username=03078442018&Password=KartoLhr@543&From='||V_MASK||'&To='||V_NUMBER||'&Message='||V_CONTENT))
+--UTL_HTTP.REQUEST(utl_url.ESCAPE('https://weblogin.premiumsms.pk/sendsms_url.html?Username=03116204000&Password=Deskpro@400&From=FAISALMOVER&To='||V_NUMBER||'&Message='||V_CONTENT))
+ INTO X_OP FROM DUAL;
+END;
+--------------------------------------------END SEND_SMS-----------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------START SENT_SMS_CLIENT-------------------------------------------------------------------------
+PROCEDURE SENT_SMS_CLIENT(BOOKING_ID NUMBER,PLOTID NUMBER)
+IS
+CLIENT_RE VARCHAR2(100);
+MOBILE VARCHAR2(100);
+CLIENT_ID NUMBER;
+VMESSAGE VARCHAR2(4000);
+CLIENT_NAME VARCHAR2(500);
+PLOT_NU VARCHAR2(100);
+P_ORG_ID NUMBER;
+MASK VARCHAR2(100);
+BEGIN
+
+    SELECT CLIENT_IDS,ORG_ID--,ID,PLOT_ID
+    INTO CLIENT_RE ,P_ORG_ID
+    FROM DGMS_PLOTS_BOOKING 
+    WHERE ID = BOOKING_ID AND PLOT_ID = PLOTID;
+       DBMS_OUTPUT.PUT_LINE(CLIENT_RE);    --FOR I IN (  
+    SELECT REPLACE(F_MOBILE_NO, '-', '')F_MOBILE_NO,ID,F_NAME 
+    INTO MOBILE,CLIENT_ID,CLIENT_NAME
+                FROM    DGMS_MEMBER_REGISTRATION
+                WHERE F_MOBILE_NO LIKE '%-%'
+                AND ID IN (   SELECT REGEXP_SUBSTR(CLIENT_RE,'[^:]+', 1, LEVEL) FROM DUAL 
+                                WHERE ROWNUM = 1
+                                CONNECT BY REGEXP_SUBSTR(CLIENT_RE, '[^:]+', 1, LEVEL) IS NOT NULL);    --LOOP
+              select PLOT_NO INTO PLOT_NU from DGMS_PLOT_DETAILS where ID=PLOTID;
+    DBMS_OUTPUT.PUT_LINE(MOBILE||' '||CLIENT_ID);
+    VMESSAGE:=  'Wellcome '||CLIENT_NAME||'! 
+    Your Membership # '||PLOT_NU||' is successfully booked in our project '||v('P_ORG_NAME')||'.';
+       DBMS_OUTPUT.PUT_LINE(VMESSAGE);  
+       
+       IF P_ORG_ID IN (4011,4020) THEN
+        MASK:='HATEEMCITI';
+        ELSIF P_ORG_ID IN (4005) THEN
+         MASK:='MailsiGardn';
+        ELSE
+        MASK:='FMH';
+       END IF;
+      SEND_SMS(MOBILE,VMESSAGE,MASK);       
+-- END LOOP;
+
+END;
+----------------------------------------START SENT_SMS_CLIENT------------------------------------------------------------------------------
+END;
+/
